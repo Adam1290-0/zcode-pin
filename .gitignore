@@ -1,0 +1,7 @@
+auth-token
+pin-wrapper.log
+pin-store.json
+*.tmp
+*.pinbak
+*.corrupt
+__pycache__/
