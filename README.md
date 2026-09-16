@@ -55,7 +55,7 @@ Give the [ZCode](https://zcode.z.ai) desktop app "sticky context pins": pin a ke
 ### Uninstall
 
 1. Quit ZCode
-2. Double-click `unpatch-pin.bat` — surgical removal: deletes only this patch's injected line and script block, keeps other injections (e.g. zcode-skin-manager, zcode-route-override). Pin data stays under `%USERPROFILE%\.zcode\plugins\pin\` — delete that folder to wipe it.
+2. Double-click `unpatch-pin.bat` — surgical removal: deletes only this patch's injected line and script block, keeps other injections (e.g. [zcode-skin-manager](https://github.com/Adam1290-0/zcode-skin-manager), [zcode-account-switcher](https://github.com/Adam1290-0/zcode-account-switcher), [zcode-route-override](https://github.com/Adam1290-0/zcode-route-override)). Pin data stays under `%USERPROFILE%\.zcode\plugins\pin\` — delete that folder to wipe it.
 
 ### Files
 
@@ -127,7 +127,7 @@ ZCode's CLI core (`zcode.cjs`) is a standalone Node process whose AI SDK resolve
 ### 卸载
 
 1. 退出 ZCode
-2. 双击 `unpatch-pin.bat`——外科手术式移除：只删本补丁的注入行和脚本块，保留其他注入（如 zcode-skin-manager、zcode-route-override）。pin 数据留在 `%USERPROFILE%\.zcode\plugins\pin\`，删掉该目录即彻底清除。
+2. 双击 `unpatch-pin.bat`——外科手术式移除：只删本补丁的注入行和脚本块，保留其他注入（如 [zcode-skin-manager](https://github.com/Adam1290-0/zcode-skin-manager)、[zcode-account-switcher](https://github.com/Adam1290-0/zcode-account-switcher)、[zcode-route-override](https://github.com/Adam1290-0/zcode-route-override)）。pin 数据留在 `%USERPROFILE%\.zcode\plugins\pin\`，删掉该目录即彻底清除。
 
 ### 使用建议
 
@@ -174,3 +174,15 @@ ZCode 的 CLI 核心（`zcode.cjs`）是独立 Node 进程，其 AI SDK 惰性�
 3. **注入**——幂等标记块（`<!--PIN_BEGIN:v1-->`）前置到 system 轮（或 Anthropic 的 `system` 字段 / Responses 的 `input[]`），带强制要求框架 + 完整集声明；开启加强的 pin 额外在最后一条 user 轮尾追加短提醒。
 4. **服务**——`pin-wrapper.js` 在 `127.0.0.1:27892` 提供 pin API（challenge/HMAC 握手，token 来自打补丁时生成的密钥）；其他进程写入数据文件时热重载 store。
 5. **UI**——渲染层脚本把可拖动悬浮图标挂到可见的 composer（elementFromPoint 命中检测，被设置页等浮层盖住时自动隐藏）、面板、消息悬停按钮、以及原生选择工具栏内的选区按钮，并轮询检测 `[PIN_STALE:n]` 标记。
+
+### 更新日志 / Changelog
+
+### v1.0.0
+
+- 🎉 首个版本：三种 pin 入口（面板输入 / 悬停消息 / 选区）+ 每轮强制注入 + 会话隔离 + 加强注入（双位置）+ 过时钩子 + 注入状态可见
+- 🧩 三种 API 格式：Chat Completions / Anthropic Messages / Responses 全部识别
+- 🔐 本地配置服务（challenge/HMAC 握手）+ fail-open + 多进程同步
+
+## License
+
+[MIT](LICENSE)
