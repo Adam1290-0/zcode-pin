@@ -9,7 +9,11 @@ import sys, shutil
 from pathlib import Path
 
 MARKER = b"/*zpin*/"
+# Insert right after the route-override injection (keeps pin outermost in the
+# fetch chain); after an app update route-override may not be re-patched yet,
+# so fall back to the same 'use strict' anchor it uses.
 ANCHOR = b"/*zro*/"
+ANCHOR_FALLBACK = b'"use strict";'
 
 def main() -> int:
     target = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("H:/Zcode/resources/glm/zcode.cjs")
@@ -29,8 +33,13 @@ def main() -> int:
 
     idx = data.find(ANCHOR)
     if idx < 0 or idx > 500:
-        print("[ERROR] route-override anchor /*zro*/ not found near head "
-              "(install route-override first, or edit ANCHOR)"); return 1
+        # route-override not yet re-patched after an app update — fall back to
+        # the same anchor it uses. Either way pin's require runs AFTER
+        # route-override's (pin stays the OUTERMOST fetch patch).
+        idx = data.find(ANCHOR_FALLBACK)
+        if idx < 0 or idx > 500:
+            print("[ERROR] neither /*zro*/ nor 'use strict' anchor found near head"); return 1
+        print("[i] route-override marker absent, anchoring after 'use strict'")
     backup = Path(str(target) + ".pinbak")
     if backup.exists() and backup.stat().st_size != target.stat().st_size:
         shutil.copy2(target, backup)
@@ -38,9 +47,9 @@ def main() -> int:
     if not backup.exists():
         shutil.copy2(target, backup)
         print(f"[1/2] backup -> {backup.name}")
-    insert_at = idx + len(ANCHOR)
+    insert_at = idx + len(ANCHOR if data[idx:idx+len(ANCHOR)] == ANCHOR else ANCHOR_FALLBACK)
     target.write_bytes(data[:insert_at] + require_line + data[insert_at:])
-    print("[2/2] injected require after route-override marker")
+    print("[2/2] injected require")
     return 0
 
 if __name__ == "__main__":
