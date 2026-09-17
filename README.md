@@ -18,7 +18,7 @@ Give the [ZCode](https://zcode.z.ai) desktop app "sticky context pins": pin a ke
 
 | 补丁版本 | 适配 ZCode 版本 | 状态 | 主要变化 |
 |---|---|---|---|
-| **v1.0.0（最新）** | **3.11.2** | ✅ 当前维护版本 | 首个版本：三种入口 + 每轮注入 + 会话隔离 + 加强注入 + 过时钩子 + 注入状态可见 |
+| **v1.0.0（最新）** | **3.11.2 / 3.12.2 / 3.12.3** | ✅ 当前维护版本 | 首个版本：三种入口 + 每轮注入 + 会话隔离 + 加强注入 + 过时钩子 + 注入状态可见 |
 
 > ⚠️ 本项目是**社区第三方补丁**，通过向 ZCode 的 CLI 核心（`zcode.cjs`）注入一行 require 并修改 `app.asar`（渲染层注入）实现，**与 ZCode 官方无关**。使用前请阅读 [DISCLAIMER.md](DISCLAIMER.md)。
 >
@@ -182,6 +182,7 @@ ZCode 的 CLI 核心（`zcode.cjs`）是独立 Node 进程，其 AI SDK 惰性�
 - 🎉 首个版本：三种 pin 入口（面板输入 / 悬停消息 / 选区）+ 每轮强制注入 + 会话隔离 + 加强注入（双位置）+ 过时钩子 + 注入状态可见
 - 🧩 三种 API 格式：Chat Completions / Anthropic Messages / Responses 全部识别
 - 🔐 本地配置服务（challenge/HMAC 握手）+ fail-open + 多进程同步
+- ✅ 验证适配 ZCode 3.12.2 / 3.12.3（请求层与 UI 层锚点全部保留，仅重打补丁；inject-pin-wrapper 增加 use-strict 回退锚点，解除对 route-override 先重打的依赖）
 
 ## License
 
