@@ -16,7 +16,7 @@ def main() -> int:
     if not html_path.exists():
         print("[ERROR] renderer/index.html not found")
         return 1
-    html = html_path.read_text(encoding="utf-8")
+    html = html_path.read_text(encoding="utf-8", newline="")
     idx = html.find(MARKER)
     if idx < 0:
         print("[OK] zcode-pin-ui block not present, nothing to remove")
@@ -25,8 +25,13 @@ def main() -> int:
     if end < 0:
         print("[ERROR] marker without closing script tag, abort")
         return 1
-    html = html[:idx] + html[end + len("</script>"):]
-    html_path.write_text(html, encoding="utf-8")
+    tail = end + len("</script>")
+    # the injector appends one "\n" after the block; consume it too so the
+    # roundtrip is byte-identical
+    if tail < len(html) and html[tail] == "\n":
+        tail += 1
+    html = html[:idx] + html[tail:]
+    html_path.write_text(html, encoding="utf-8", newline="")
     print("[OK] zcode-pin-ui block removed")
     return 0
 

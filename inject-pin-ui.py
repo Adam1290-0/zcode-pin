@@ -11,10 +11,12 @@ MARKER = '<script id="zcode-pin-ui">'
 TOKEN_PLACEHOLDER = "'__ZPIN_TOKEN__'"
 
 def read_raw(p: Path) -> str:
-    return p.read_text(encoding="utf-8")
+    # newline="": preserve the file's original line endings byte-for-byte, so an
+    # inject -> uninject roundtrip never rewrites LF to CRLF across the file
+    return p.read_text(encoding="utf-8", newline="")
 
 def write_raw(p: Path, s: str) -> None:
-    p.write_text(s, encoding="utf-8")
+    p.write_text(s, encoding="utf-8", newline="")
 
 def load_token(token_file: Path) -> str:
     if token_file.exists():
