@@ -20,20 +20,41 @@ const store = core.createStore(STORE_PATH);
 let lastInjectReport = null;
 // P3-6: set when a main-session chat hit an UNCOVERED endpoint while pins exist
 let lastUncoveredReport = null;
+const TOKEN_FILE = process.env.ZPIN_TOKEN_FILE || path.join(DATA_DIR, "auth-token");
 let AUTH_TOKEN = "";
 if (process.env.ZPIN_TOKEN) AUTH_TOKEN = process.env.ZPIN_TOKEN.trim();
 else {
-  try {
-    const tf = process.env.ZPIN_TOKEN_FILE || path.join(DATA_DIR, "auth-token");
-    AUTH_TOKEN = fs.readFileSync(tf, "utf8").trim();
-  } catch (_) {}
+  try { AUTH_TOKEN = fs.readFileSync(TOKEN_FILE, "utf8").trim(); } catch (_) {}
+}
+// 401 self-heal: a transient boot-time read failure used to wedge the server
+// at AUTH_TOKEN="" rejecting every request until restart. Re-read lazily only
+// when a check would otherwise fail; the env override always wins.
+function refreshToken() {
+  if (process.env.ZPIN_TOKEN) { AUTH_TOKEN = process.env.ZPIN_TOKEN.trim(); return AUTH_TOKEN; }
+  try { AUTH_TOKEN = fs.readFileSync(TOKEN_FILE, "utf8").trim(); } catch (_) {}
+  return AUTH_TOKEN;
 }
 
+// Log rotation: append-only would grow forever in a long-lived ZCode process,
+// so check the size every N appends and truncate past 1MB (startup check below
+// stays as the boot-time catch-all). A process-multiplied log() makes counting
+// approximate per process — good enough for a hygiene cap.
+const LOG_CAP = 1048576;
+const LOG_CHECK_EVERY = 4096;
+let logWrites = 0;
+function rotateIfNeeded() {
+  logWrites++;
+  if (logWrites % LOG_CHECK_EVERY !== 0) return;
+  try {
+    if (fs.statSync(LOG_PATH).size > LOG_CAP) fs.writeFileSync(LOG_PATH, "");
+  } catch (_) {}
+}
 function log(msg) {
   try {
     fs.mkdirSync(DATA_DIR, { recursive: true });
     fs.appendFileSync(LOG_PATH,
       new Date().toISOString() + " [" + process.pid + "] " + msg + "\n");
+    rotateIfNeeded();
   } catch (_) { /* logging must never break requests */ }
 }
 const _logLast = {};
@@ -43,9 +64,9 @@ function throttleLog(msg) { // can be called per request: keep the log readable
   _logLast[msg] = now;
   log(msg);
 }
-try {
+try { // boot-time catch-all (rotation above covers long-lived processes)
   const st = fs.statSync(LOG_PATH);
-  if (st.size > 1048576) fs.writeFileSync(LOG_PATH, "");
+  if (st.size > LOG_CAP) fs.writeFileSync(LOG_PATH, "");
 } catch (_) {}
 
 // Session identity comes from the request itself (ZCode sets these headers on
@@ -158,6 +179,7 @@ function corsHeaders(req) {
     "access-control-allow-headers": "content-type, x-zpin-token",
     "access-control-max-age": "600",
     "vary": "Origin",
+    "access-control-allow-private-network": "true",
   };
   if (allow) h["access-control-allow-origin"] = allow;
   return h;
@@ -218,7 +240,8 @@ function startServer() {
         : "";
       return json(200, { nonce: nonce, proof: proof });
     }
-    if (!AUTH_TOKEN || !tokenEqual(req.headers["x-zpin-token"], AUTH_TOKEN)) {
+    if ((!AUTH_TOKEN || !tokenEqual(req.headers["x-zpin-token"], AUTH_TOKEN)) &&
+        (!refreshToken() || !tokenEqual(req.headers["x-zpin-token"], AUTH_TOKEN))) {
       res.writeHead(401); return res.end("unauthorized");
     }
     const origin = req.headers.origin;
@@ -271,9 +294,27 @@ function startServer() {
       } catch (e) { return json(500, { error: String(e && e.message || e) }); }
     });
   });
+  var retryTimer = null;
   server.on("error", function (e) {
-    if (e.code === "EADDRINUSE") log("pin server: port busy, skip");
-    else log("pin server error: " + e.message);
+    if (e.code === "EADDRINUSE") {
+      // Another process owns the port. If it later dies (crash, update), the
+      // UI would be left without any server. Retry on a timer so one of the
+      // surviving processes takes over instead of skipping forever.
+      if (!retryTimer) {
+        log("pin server: port busy, retrying every 3s");
+        retryTimer = setInterval(function () {
+          try {
+            server.listen(SERVER_PORT, "127.0.0.1", function () {
+              clearInterval(retryTimer);
+              retryTimer = null;
+              log("pin server on 127.0.0.1:" + SERVER_PORT + " (recovered)");
+            });
+          } catch (err) { /* try again next tick */ }
+        }, 3000);
+      }
+    } else {
+      log("pin server error: " + e.message);
+    }
   });
   server.listen(SERVER_PORT, "127.0.0.1", function () { log("pin server on 127.0.0.1:" + SERVER_PORT); });
   // Production (token from file) may unref: ZCode's main process has plenty of
